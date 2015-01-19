@@ -22,8 +22,8 @@ Anysyncd::Daemon - Daemonizing for anysyncd
 This module takes care of daemonizing the anysyncd daemon. It uses
 L<MooseX::Daemonize> for all the dirty work.
 
-The following functions provided by L<MooseX::Daemonize> are hidden
-to the Getopt Interface:
+The following functions provided by L<MooseX::Daemonize> are hidden to the
+Getopt Interface:
 
 =over 12
 
@@ -78,8 +78,7 @@ has log =>
 
 =item C<logfile>
 
-$self->logfile allows to set the logfile, this can't be changed after the
-object
+$self->logfile allows to set the logfile, this can't be changed after the object
 is fully initialized (in that case after C<$self->log> is used for the first
 time
 
@@ -95,9 +94,9 @@ has logfile => (
 
 =item C<loglevel>
 
-$self->loglevel allows to set the loglevel, this can't be changed after the object
-is fully initialized (in that case after C<$self->log> is used for the first
-time
+$self->loglevel allows to set the loglevel, this can't be changed after the
+object is fully initialized (in that case after C<$self->log> is used for the
+first time
 
 =cut
 
@@ -111,15 +110,17 @@ has loglevel => (
 
 =item C<configfile>
 
-$self->configfile represents the configurationfile, it defaults to /etc/anysyncd/anysyncd.ini
+$self->configfile represents the configurationfile, it defaults to
+/etc/anysyncd/anysyncd.ini
 
 =cut
 
 has configfile => (
-    is            => 'rw',
-    isa           => 'Str',
-    default       => '/etc/anysyncd/anysyncd.ini',
-    documentation => qq { configfile for anysyncd, defaults to '/etc/anysyncd/anysyncd.ini' }
+    is      => 'rw',
+    isa     => 'Str',
+    default => '/etc/anysyncd/anysyncd.ini',
+    documentation =>
+        qq { configfile for anysyncd, defaults to '/etc/anysyncd/anysyncd.ini' }
 );
 
 =item C<config>

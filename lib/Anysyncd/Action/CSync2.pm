@@ -127,10 +127,10 @@ sub process_files {
 }
 
 sub _commit_remote {
-    my ($self)   = @_;
-    my $proddir  = $self->config->{'prod_dir'};
-    my ($basedir, $name) = (dirname($proddir), basename($proddir));
-    my $proddir_tmp = File::Spec->join($basedir, ".$name.tmp");
+    my ($self) = @_;
+    my $proddir = $self->config->{'prod_dir'};
+    my ( $basedir, $name ) = ( dirname($proddir), basename($proddir) );
+    my $proddir_tmp = File::Spec->join( $basedir, ".$name.tmp" );
     my $csyncdir = $self->config->{'csync_dir'};
     $proddir  =~ s/\/*$//;
     $csyncdir =~ s/\/*$//;

@@ -17,8 +17,8 @@ watcher = /tmp/testdir
 =head1 DESCRIPTION
 
 Anysyncd::Action::Rsync is an rsync based syncer for AnySyncd, it calls rsync
-for every change event. If there are any later events after the first sync, it tries
-up to three time to sync the whole tree, until there are any new events.
+for every change event. If there are any later events after the first sync, it
+tries up to three time to sync the whole tree, until there are any new events.
 
 It doesn't accept any Syncer specific options.
 
