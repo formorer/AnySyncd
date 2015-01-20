@@ -60,7 +60,6 @@ with qw(MooseX::Daemonize);
 use MooseX::AttributeHelpers;
 
 use AnyEvent;
-use AnyEvent::Filesys::Notify;
 use Log::Log4perl;
 use Config::IniFiles;
 use Data::Dumper;
@@ -234,86 +233,61 @@ after start => sub {
 
     foreach my $section ( $self->config->Sections() ) {
         next if $section eq 'global';
-        my $handler = $self->config->val( $section, 'handler' );
-        if ( !$handler ) {
-            $self->log->error(
-                "Section \"$section\" has no configured handler");
-            next;
-        }
 
-        #build configuration for the handler
-
-        my $config_for_handler;
+        # build configuration for the handler
+        my $config_for_handler = { name => $section };
         foreach my $sect_t ( 'global', $section ) {
             foreach my $key ( $self->config->Parameters($sect_t) ) {
                 $config_for_handler->{$key} =
                     $self->config->val( $sect_t, $key );
             }
-            $config_for_handler->{name} = $sect_t;
         }
-
+        $config_for_handler->{filter} ||= '\.(swp|tmp)$';
         $self->log->debug(
             sprintf( 'Configuration for section "$section": %s',
                 Dumper($config_for_handler) )
         );
-
-        my $obj =
-            $self->_load( $section, $handler, "new",
-            config => $config_for_handler )
-            || next;
-        $self->{'handlers'}->{$section}->{'obj'} = $obj;
-
-        $self->log->info("Added $handler as handler for $section");
-
-        my $watcher = $self->config->val( $section, 'watcher' );
-        if ( !$watcher ) {
-            $self->error("No watcher found for $section");
+        unless ($config_for_handler->{handler}
+            and $config_for_handler->{watcher} )
+        {
+            $self->log->error( 'Configuration error: "'
+                    . $section
+                    . '" needs a "handler" and a "watcher"' );
             next;
         }
-        my $filter = $self->config->val( $section, 'filter' )
-            || '\.(swp|tmp)$';
 
-        my $notifier = AnyEvent::Filesys::Notify->new(
-            dirs         => [$watcher],
-            filter       => sub { shift !~ /$filter/ },
-            parse_events => 1,
-            cb           => sub {
-                $self->process( $section, @_ );
-            }
-        );
-        if ($notifier) {
-            $self->log->info("Watcher added for $section");
-        }
+        # instantiate handler
+        $self->{'handlers'}->{$section}->{'obj'} =
+            $self->_load($config_for_handler) || next;
+
+        $self->log->info( "Added "
+                . $config_for_handler->{handler}
+                . " as handler for $section" );
     }
 
     my $w = AnyEvent->condvar;  # stores whether a condition was flagged
     $w->recv;                   # enters "main loop" till $condvar gets ->send
 };
 
-sub process {
-    my $self    = shift;
-    my $section = shift;
-    foreach my $event (@_) {
-        $self->{'handlers'}->{$section}->{'obj'}->add_files( $event->path );
-    }
-}
-
 sub _load {
+    my ( $self, $config ) = @_;
 
-    my ( $self, $section, $module, $constructor, @args ) = @_;
-
-    eval "require $module";
+    eval "require $config->{handler}";
 
     if ($@) {
         $self->log->error(
-            "Could not load module $module for section $section: $@");
+                  "Could not load module $config->{handler} for section "
+                . $config->{name}
+                . ": $@" );
         return undef;
     }
     my $obj;
-    eval { $obj = $module->$constructor(@args); };
+    eval { $obj = $config->{handler}->new( config => $config ); };
     if ($@) {
         $self->log->error(
-            "Could not instantiate module $module for section $section: $@");
+            "Could not instantiate module $config->{handler} for section "
+                . $config->{name}
+                . ": $@" );
         return undef;
     }
     return $obj;

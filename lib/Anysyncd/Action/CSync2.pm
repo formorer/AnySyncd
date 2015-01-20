@@ -36,9 +36,11 @@ sub BUILD {
                 . "'remote_hosts' is not configured." );
     }
 
-    # Do one sync at startup
-    $self->log->info("BUILD(): executing startup sync");
-    $self->process_files(1);
+    # Do one full sync at startup
+    unless ( $self->noop() ) {
+        $self->log->info("BUILD(): executing startup sync");
+        $self->process_files('full');
+    }
 }
 
 sub process_files {
