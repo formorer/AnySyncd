@@ -9,6 +9,9 @@ use AnyEvent::DateTime::Cron;
 use AnyEvent::Filesys::Notify;
 use IPC::ShareLite;
 use Storable qw( freeze thaw );
+use Email::MIME;
+use Email::Sender::Simple;
+use Try::Tiny;
 
 has 'log' => ( is => 'rw' );
 has 'config' => ( is => 'rw', isa => 'HashRef', required => 1 );
@@ -27,7 +30,6 @@ has '_is_locked' => (
 );
 has _files => ( is => 'rw' );
 
-#
 sub BUILD {
     my $self = shift;
 
@@ -130,6 +132,40 @@ sub add_files {
         );
         $self->_timer($w);
     }
+}
+
+sub _report_error {
+    my ( $self, $errstr ) = @_;
+
+    # log
+    $self->log->error($errstr);
+
+    # e-mail
+    return
+        unless ( $self->config->{'admin_from'}
+        and $self->config->{'admin_to'} );
+
+    my $message = Email::MIME->create(
+        header_str => [
+            From    => $self->config->{'admin_from'},
+            To      => $self->config->{'admin_to'},
+            Subject => "$main::PROGRAM_NAME: failed to sync "
+                . $self->config->{name},
+        ],
+        attributes => {
+            encoding => 'quoted-printable',
+            charset  => 'UTF-8',
+        },
+        body_str => "The following error occured:\n\n$errstr",
+    );
+
+    # send the message
+    try {
+        Email::Sender::Simple->send($message);
+    }
+    catch {
+        $self->log->error("Failed to send mail: $_");
+    };
 }
 
 1;

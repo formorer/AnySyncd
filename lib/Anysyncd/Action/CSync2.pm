@@ -107,7 +107,6 @@ sub process_files {
         if ($@) {
             $err    = 1;
             $errstr = "process_files(): The local sync failed: $@";
-            $self->log->error($errstr);
         }
         if ( !$err ) {
             $self->log->debug( "process_files(): local rsync calls done, now "
@@ -166,7 +165,6 @@ sub _commit_remote {
             $err++;
             $errstr .= "_commit_remote(): committing $host failed: "
                 . $ssh->error . "\n\n";
-            $self->log->error($errstr);
         }
     }
     return ( $err, $errstr );
@@ -180,7 +178,6 @@ sub _csync2 {
     $err = $?;
     if ($err) {
         $errstr = "_csync2(): csync2 failed with $err: $csync_out";
-        $self->log->error($errstr);
     }
     return ( $err, $errstr );
 }
@@ -237,11 +234,6 @@ sub _dirs_equal {
     }
 
     return $equal;
-}
-
-sub _report_error {
-    my ( $self, $err ) = @_;
-    $self->log->debug("_report_error(): NOT IMPLEMENTED, YET");
 }
 
 1;
