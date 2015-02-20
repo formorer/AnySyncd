@@ -64,7 +64,7 @@ use Log::Log4perl;
 use Config::IniFiles;
 use Data::Dumper;
 
-my $VERSION = '0.1';
+my $VERSION = '1.6';
 
 =item C<log>
 
