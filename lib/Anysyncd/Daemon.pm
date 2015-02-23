@@ -200,6 +200,21 @@ sub BUILD {
     }
 }
 
+# Handle SIGHUP ourselves, the MooseX::Daemonize manpage lies about having a
+# handler "handle_sighup". It's commented in the code.
+after setup_signals => sub {
+    my $self = shift;
+    $SIG{'HUP'} = sub {
+        if ( $self->foreground ) {
+            $self->shutdown();
+        } else {
+            Log::Log4perl->init( $self->_logging_configuration );
+            $self->log( Log::Log4perl->get_logger() );
+            $self->log->info('Re-opened Logfiles');
+        }
+    };
+};
+
 before shutdown => sub {
     my $self = shift;
     Log::Log4perl->init( $self->_logging_configuration );
