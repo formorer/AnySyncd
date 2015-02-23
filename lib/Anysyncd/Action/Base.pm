@@ -69,9 +69,12 @@ sub files_clear {
 
 sub create_watcher {
     my $self = shift;
-    if ( $self->_watcher and $self->noop() ) {
-        $self->_watcher(undef);
-        $self->log->info( "Watcher removed for " . $self->config->{name} );
+    if ( $self->noop() ) {
+        if ( $self->_watcher() ) {
+            $self->_watcher(undef);
+            $self->log->info(
+                "Watcher removed for " . $self->config->{name} );
+        }
     } elsif ( not $self->_watcher ) {
         $self->_watcher(
             AnyEvent::Filesys::Notify->new(
