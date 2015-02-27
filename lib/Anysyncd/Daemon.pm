@@ -143,17 +143,6 @@ has '+progname'       => ( traits => ['NoGetopt'] );
 #has '+dont_close_all_files' => ( traits => ['NoGetopt'] );
 has '+basedir' => ( traits => ['NoGetopt'] );
 
-has 'files' => (
-    metaclass => 'Collection::Array',
-    is        => 'ro',
-    isa       => 'ArrayRef',
-    default   => sub { [] },
-    provides  => {
-        'push'   => 'add_files',
-        'delete' => 'delete_files',
-    }
-);
-
 sub _build_loglevel {
     my $self = shift;
     return $self->config->val( 'global', 'loglevel' ) || 'INFO';
