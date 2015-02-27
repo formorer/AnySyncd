@@ -198,6 +198,11 @@ sub BUILD {
         }
         $self->config($cfg);
     }
+
+    my $statedir = "/var/run/anysyncd";
+    if ( !-d $statedir ) {
+        mkdir( $statedir, 0700 ) or croak("Failed to create $statedir: $!");
+    }
 }
 
 # Handle SIGHUP ourselves, the MooseX::Daemonize manpage lies about having a
