@@ -48,14 +48,14 @@ sub BUILD {
     $self->_files($share);
     $self->_files->store( freeze( [] ) );
 
-    $self->create_watcher();
+    $self->_create_watcher();
 
     if ( $self->config->{'cron'} ) {
         AnyEvent::DateTime::Cron->new()->add(
             $self->config->{'cron'} => sub {
-                $self->create_watcher();
+                $self->_create_watcher();
                 $self->process_files('full')
-                    if (!$self->noop
+                    if (!$self->_noop
                     and !$self->_timer
                     and $self->_is_unlocked );
             }
@@ -68,9 +68,9 @@ sub files_clear {
     $self->_files->store( freeze( [] ) );
 }
 
-sub create_watcher {
+sub _create_watcher {
     my $self = shift;
-    if ( $self->noop() ) {
+    if ( $self->_noop() ) {
         if ( $self->_watcher() ) {
             $self->_watcher(undef);
             $self->log->info(
@@ -95,7 +95,7 @@ sub create_watcher {
     }
 }
 
-sub noop {
+sub _noop {
     my $self = shift;
     return ( $self->config->{'noop_file'}
             and not -e $self->config->{'noop_file'} );
@@ -122,7 +122,7 @@ sub add_files {
     my @new_files = (@_);
 
     # check for noop state
-    $self->create_watcher();
+    $self->_create_watcher();
     return unless $self->_watcher;
 
     $self->files(@new_files);

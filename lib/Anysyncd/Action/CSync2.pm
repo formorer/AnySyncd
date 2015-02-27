@@ -37,7 +37,7 @@ sub BUILD {
     }
 
     # Do one full sync at startup
-    unless ( $self->noop() ) {
+    unless ( $self->_noop() ) {
         $self->log->info("BUILD(): executing startup sync");
         $self->process_files('full');
     }
