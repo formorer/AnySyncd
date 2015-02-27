@@ -45,15 +45,15 @@ sub BUILD {
 
 sub process_files {
     my $self = shift;
+    $self->_lock();
     $self->_timer(undef);
     $self->log->debug("Processing files");
 
     if ( !scalar @{ $self->files() } ) {
         $self->log->debug("No files to sync");
+        $self->_unlock();
         return;
     }
-
-    $self->_lock();
 
     my $rsync = File::Rsync->new(
         archive      => 1,

@@ -45,15 +45,15 @@ sub BUILD {
 
 sub process_files {
     my ( $self, $full_sync ) = @_;
+    $self->_lock();
     $self->_timer(undef);
     $self->log->debug("process_files(): Processing files");
 
     if ( !$full_sync and !scalar @{ $self->files() } ) {
         $self->log->debug("process_files(): No files to sync");
+        $self->_unlock();
         return;
     }
-
-    $self->_lock();
 
     # we try very hard to finish one local sync with no intermittent changes
     fork_call {
