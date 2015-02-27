@@ -99,6 +99,7 @@ sub process_files {
             croak("There was an error in the fork call: $@");
         }
         $self->log->info("rsync calls done");
+        $self->_stamp_file( "success", time() );
         $self->_unlock();
     };
 }

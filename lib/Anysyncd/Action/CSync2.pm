@@ -62,6 +62,7 @@ sub process_files {
             exit 0;
         }
         my $success = 0;
+        my $start_ts;
         foreach my $i ( 1 .. 100 ) {
             $self->log->debug( "process_files(): local rsync run $i files: "
                     . scalar( @{ $self->files } ) );
@@ -69,8 +70,8 @@ sub process_files {
             # clear list of files
             $self->files_clear;
 
-            my $start_ts = time();
-            my $err      = $self->_local_rsync();
+            $start_ts = time();
+            my $err = $self->_local_rsync();
 
             $self->log->debug( "process_files(): local rsync finished "
                     . "within "
@@ -98,12 +99,14 @@ sub process_files {
             }
         }
         if ( !$success ) {
-            die "Could not achieve a consistent state after 100 retries.";
+            croak "Could not achieve a consistent state after 100 retries.";
         }
+        return $start_ts;
     }
     sub {
-        my $err    = undef;
-        my $errstr = "";
+        my ($start_ts) = @_;
+        my $err        = undef;
+        my $errstr     = "";
         if ($@) {
             $err    = 1;
             $errstr = "process_files(): The local sync failed: $@";
@@ -121,6 +124,7 @@ sub process_files {
         if ($err) {
             $self->_report_error($errstr);
         } else {
+            $self->_stamp_file( "success", $start_ts );
             $self->log->info("process_files(): Synchronization succeeded.");
         }
         $self->_unlock();

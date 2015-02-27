@@ -29,6 +29,7 @@ has '_is_locked' => (
     },
 );
 has _files => ( is => 'rw' );
+has _stamps => ( is => 'rw', isa => 'HashRef', default => sub { {} } );
 
 sub BUILD {
     my $self = shift;
@@ -120,6 +121,7 @@ sub add_files {
     my $self      = shift;
     my @new_files = (@_);
 
+    # check for noop state
     $self->create_watcher();
     return unless $self->_watcher;
 
@@ -127,10 +129,11 @@ sub add_files {
     $self->log->debug(
         "Added " . join( " ", @new_files ) . " to files queue" );
 
+    # are we completely idle? Then start a new wait/process cycle 
     if ( !$self->_timer && $self->_is_unlocked ) {
-        my $waiting_time = $self->config->{'waiting_time'} || 5;
+        $self->_stamp_file( "lastchange", time() );
         my $w = AnyEvent->timer(
-            after => $waiting_time,
+            after => $self->config->{'waiting_time'} || 5,
             cb    => sub { $self->process_files }
         );
         $self->_timer($w);
@@ -169,6 +172,29 @@ sub _report_error {
     catch {
         $self->log->error("Failed to send mail: $_");
     };
+}
+
+sub _stamp_file {
+    my ( $self, $type, $stamp ) = @_;
+    my $ret = $self->_stamps->{$type};
+    my $fn =
+        "/var/run/anysyncd/" . $self->config->{name} . "_" . $type . "_stamp";
+    if ($stamp) {
+        open( my $fh, ">", $fn )
+            or $self->_report_error("Failed to open $fn: $!");
+        print $fh $stamp;
+        close $fh;
+        $ret = $stamp;
+    } elsif ( !$ret and -e $fn ) {
+
+        # read from disk if there's no mem state, yet
+        open( my $fh, "<", $fn )
+            or $self->_report_error("Failed to open $fn: $!");
+        $ret = do { local $/ = <$fh> };
+        close $fh;
+    }
+    $self->_stamps->{$type} = $ret;
+    return $ret;
 }
 
 1;
