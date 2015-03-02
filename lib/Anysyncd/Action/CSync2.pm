@@ -55,6 +55,13 @@ sub process_files {
         return;
     }
 
+    my ( $err, $errstr ) = $self->_check_stamps();
+    if ($err) {
+        $self->_report_error($errstr);
+        $self->_unlock();
+        return;
+    }
+
     # we try very hard to finish one local sync with no intermittent changes
     fork_call {
         if ( !scalar( @{ $self->files } ) and !$full_sync ) {
@@ -238,6 +245,52 @@ sub _dirs_equal {
     }
 
     return $equal;
+}
+
+sub _check_stamps {
+    my ($self) = @_;
+    my $errstr = "";
+    my $err    = 0;
+
+    for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
+        my $ssh = Net::OpenSSH->new($host);
+
+        my $fn =
+            "/var/run/anysyncd/" . $self->config->{name} . "_success_stamp";
+        my $succ = $ssh->capture("[ -f $fn ] && cat $fn; exit 0;");
+        $succ =~ s/[^0-9]//g;
+
+        unless ( $ssh->error ) {
+            $fn =
+                  "/var/run/anysyncd/"
+                . $self->config->{name}
+                . "_lastchange_stamp";
+            my $lastchange = $ssh->capture("[ -f $fn ] && cat $fn; exit 0");
+            $lastchange =~ s/[^0-9]//g;
+
+            if (   !$ssh->error
+                and $succ
+                and $lastchange
+                and ( $lastchange > $succ ) )
+            {
+                $err++;
+                $errstr .= "_check_stamps(): remote host $host seems to have "
+                    . "unsynced changes. Syncing our changes to that host might be unsafe.\n\n";
+            }
+        }
+
+        if ( $ssh->error ) {
+            $err++;
+            $errstr
+                .= "_check_stamps(): getting timestamps from $host failed: "
+                . $ssh->error . "\n\n";
+        }
+
+        if ( !$err ) {
+            $self->log->debug("_check_stamps(): stamps on $host check out");
+        }
+    }
+    return ( $err, $errstr );
 }
 
 1;
