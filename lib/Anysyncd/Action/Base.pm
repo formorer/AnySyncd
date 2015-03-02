@@ -129,12 +129,12 @@ sub add_files {
     $self->log->debug(
         "Added " . join( " ", @new_files ) . " to files queue" );
 
-    # are we completely idle? Then start a new wait/process cycle 
+    # are we completely idle? Then start a new wait/process cycle
     if ( !$self->_timer && $self->_is_unlocked ) {
         $self->_stamp_file( "lastchange", time() );
         my $w = AnyEvent->timer(
             after => $self->config->{'waiting_time'} || 5,
-            cb    => sub { $self->process_files }
+            cb => sub { $self->process_files }
         );
         $self->_timer($w);
     }

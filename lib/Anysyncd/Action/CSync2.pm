@@ -144,7 +144,7 @@ sub _commit_remote {
     my ( $basedir, $name ) = ( dirname($proddir), basename($proddir) );
     my $proddir_tmp = File::Spec->join( $basedir, ".$name.tmp" );
     my $csyncdir = $self->config->{'csync_dir'};
-    $proddir  =~ s/\/*$//;
+    $proddir =~ s/\/*$//;
     $csyncdir =~ s/\/*$//;
     my $errstr = "";
     my $err    = 0;
@@ -197,7 +197,7 @@ sub _local_rsync {
     my ($self)   = @_;
     my $proddir  = $self->config->{'prod_dir'};
     my $csyncdir = $self->config->{'csync_dir'};
-    $proddir  =~ s/\/*$//;
+    $proddir =~ s/\/*$//;
     $csyncdir =~ s/\/*$//;
 
     my $rsync = File::Rsync->new(
