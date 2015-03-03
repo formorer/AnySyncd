@@ -155,8 +155,7 @@ sub _report_error {
         header_str => [
             From    => $self->config->{'admin_from'},
             To      => $self->config->{'admin_to'},
-            Subject => "$main::PROGRAM_NAME: failed to sync "
-                . $self->config->{name},
+            Subject => "anysyncd failed to sync " . $self->config->{name},
         ],
         attributes => {
             encoding => 'quoted-printable',
