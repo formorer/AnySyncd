@@ -177,7 +177,7 @@ sub _stamp_file {
     my ( $self, $type, $stamp ) = @_;
     my $ret = $self->_stamps->{$type};
     my $fn =
-        "/var/run/anysyncd/" . $self->config->{name} . "_" . $type . "_stamp";
+        "/var/lib/anysyncd/" . $self->config->{name} . "_" . $type . "_stamp";
     if ($stamp) {
         open( my $fh, ">", $fn )
             or $self->_report_error("Failed to open $fn: $!");

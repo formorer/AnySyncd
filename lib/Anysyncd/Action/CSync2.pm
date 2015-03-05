@@ -256,13 +256,13 @@ sub _check_stamps {
         my $ssh = Net::OpenSSH->new($host);
 
         my $fn =
-            "/var/run/anysyncd/" . $self->config->{name} . "_success_stamp";
+            "/var/lib/anysyncd/" . $self->config->{name} . "_success_stamp";
         my $succ = $ssh->capture("[ -f $fn ] && cat $fn; exit 0;");
         $succ =~ s/[^0-9]//g;
 
         unless ( $ssh->error ) {
             $fn =
-                  "/var/run/anysyncd/"
+                  "/var/lib/anysyncd/"
                 . $self->config->{name}
                 . "_lastchange_stamp";
             my $lastchange = $ssh->capture("[ -f $fn ] && cat $fn; exit 0");
