@@ -46,7 +46,6 @@ sub BUILD {
 sub process_files {
     my ( $self, $full_sync ) = @_;
     $self->_lock();
-    $self->_timer(undef);
     $self->log->debug("process_files(): Processing files");
 
     if ( !$full_sync and !scalar @{ $self->files() } ) {
