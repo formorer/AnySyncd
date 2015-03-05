@@ -55,21 +55,10 @@ sub process_files {
         return;
     }
 
-    my ( $err, $errstr ) = $self->_check_stamps();
-    if ($err) {
-        $self->_report_error($errstr);
-        $self->_unlock();
-        return;
-    }
-
-    # we try very hard to finish one local sync with no intermittent changes
     fork_call {
-        if ( !scalar( @{ $self->files } ) and !$full_sync ) {
-            $self->log->debug("process_files(): Nothing to process.");
-            exit 0;
-        }
-        my $success = 0;
-        my $start_ts;
+        my ( $err, $errstr, $start_ts ) = ( 0, "", undef );
+
+      # we try very hard to finish one local sync with no intermittent changes
         foreach my $i ( 1 .. 100 ) {
             $self->log->debug( "process_files(): local rsync run $i files: "
                     . scalar( @{ $self->files } ) );
@@ -78,7 +67,7 @@ sub process_files {
             $self->files_clear;
 
             $start_ts = time();
-            my $err = $self->_local_rsync();
+            $err      = $self->_local_rsync();
 
             $self->log->debug( "process_files(): local rsync finished "
                     . "within "
@@ -101,32 +90,27 @@ sub process_files {
             } else {
                 $self->log->debug( "process_files(): No more file changes "
                         . "left to sync" );
-                $success = 1;
+                ( $err, $errstr ) = ( 0, "" );
                 last;
             }
         }
-        if ( !$success ) {
-            croak "Could not achieve a consistent state after 100 retries.";
+        if ($err) {
+            $errstr = "process_files(): could not achieve a consistent local "
+                . "sync state after 100 retries.";
         }
-        return $start_ts;
+
+        # now follows everything involving the network
+        ( $err, $errstr ) = $self->_check_stamps()  if ( !$err );
+        ( $err, $errstr ) = $self->_csync2()        if ( !$err );
+        ( $err, $errstr ) = $self->_commit_remote() if ( !$err );
+
+        return ( $err, $errstr, $start_ts );
     }
     sub {
-        my ($start_ts) = @_;
-        my $err        = undef;
-        my $errstr     = "";
+        my ( $err, $errstr, $start_ts ) = @_;
         if ($@) {
             $err    = 1;
-            $errstr = "process_files(): The local sync failed: $@";
-        }
-        if ( !$err ) {
-            $self->log->debug( "process_files(): local rsync calls done, now "
-                    . "calling csync2" );
-            ( $err, $errstr ) = $self->_csync2();
-        }
-        if ( !$err ) {
-            $self->log->debug( "process_files(): csync2 done, executing "
-                    . "remote commit" );
-            ( $err, $errstr ) = $self->_commit_remote();
+            $errstr = "process_files(): My child died: $@";
         }
         if ($err) {
             $self->_report_error($errstr);
@@ -148,6 +132,8 @@ sub _commit_remote {
     $csyncdir =~ s/\/*$//;
     my $errstr = "";
     my $err    = 0;
+
+    $self->log->debug("_commit_remote(): sub got called");
 
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
@@ -185,6 +171,8 @@ sub _csync2 {
     my ($self) = @_;
     my ( $err, $errstr ) = ( 0, "" );
 
+    $self->log->debug("_csync2(): sub got called");
+
     my $csync_out = `csync2 -x 2>&1`;
     $err = $?;
     if ($err) {
@@ -199,6 +187,8 @@ sub _local_rsync {
     my $csyncdir = $self->config->{'csync_dir'};
     $proddir =~ s/\/*$//;
     $csyncdir =~ s/\/*$//;
+
+    $self->log->debug("_local_rsync(): sub got called");
 
     my $rsync = File::Rsync->new(
         'verbose'    => 1,
@@ -251,6 +241,8 @@ sub _check_stamps {
     my ($self) = @_;
     my $errstr = "";
     my $err    = 0;
+
+    $self->log->debug("_check_stamps(): sub got called");
 
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
