@@ -63,6 +63,7 @@ use AnyEvent;
 use Log::Log4perl;
 use Config::IniFiles;
 use Data::Dumper;
+use Carp qw(croak);
 
 my $VERSION = '1.6';
 
