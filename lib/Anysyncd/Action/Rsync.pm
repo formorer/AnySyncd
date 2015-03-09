@@ -46,7 +46,6 @@ sub BUILD {
 sub process_files {
     my $self = shift;
     $self->_lock();
-    $self->_timer(undef);
     $self->log->debug("Processing files");
 
     if ( !scalar @{ $self->files() } ) {

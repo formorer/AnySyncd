@@ -129,14 +129,17 @@ sub add_files {
     $self->log->debug(
         "Added " . join( " ", @new_files ) . " to files queue" );
 
-    # are we completely idle? Then start a new wait/process cycle
-    if ( !$self->_timer && $self->_is_unlocked ) {
-        $self->_stamp_file( "lastchange", time() );
+    # always wait a few seconds for more events to come in
+    if ( !$self->_timer ) {
         my $w = AnyEvent->timer(
             after => $self->config->{'waiting_time'} || 5,
-            cb => sub { $self->process_files }
+            cb => sub {
+                $self->_timer(undef);
+                $self->process_files if $self->_is_unlocked;
+            }
         );
         $self->_timer($w);
+        $self->_stamp_file( "lastchange", time() );
     }
 }
 
@@ -177,7 +180,7 @@ sub _stamp_file {
     my ( $self, $type, $stamp ) = @_;
     my $ret = $self->_stamps->{$type};
     my $fn =
-        "/var/run/anysyncd/" . $self->config->{name} . "_" . $type . "_stamp";
+        "/var/lib/anysyncd/" . $self->config->{name} . "_" . $type . "_stamp";
     if ($stamp) {
         open( my $fh, ">", $fn )
             or $self->_report_error("Failed to open $fn: $!");

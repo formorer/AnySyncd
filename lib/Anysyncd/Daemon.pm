@@ -63,8 +63,9 @@ use AnyEvent;
 use Log::Log4perl;
 use Config::IniFiles;
 use Data::Dumper;
+use Carp qw(croak);
 
-my $VERSION = '1.6';
+my $VERSION = '1.7';
 
 =item C<log>
 
@@ -188,7 +189,7 @@ sub BUILD {
         $self->config($cfg);
     }
 
-    my $statedir = "/var/run/anysyncd";
+    my $statedir = "/var/lib/anysyncd";
     if ( !-d $statedir ) {
         mkdir( $statedir, 0700 ) or croak("Failed to create $statedir: $!");
     }
