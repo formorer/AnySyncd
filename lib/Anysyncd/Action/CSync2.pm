@@ -8,7 +8,6 @@ use File::Basename qw(basename dirname);
 use File::Spec;
 use File::DirCompare;
 use Carp qw(croak);
-use String::ShellQuote;
 
 extends 'Anysyncd::Action::Base';
 
@@ -130,32 +129,28 @@ sub _commit_remote {
     my $csyncdir = $self->config->{'csync_dir'};
     $proddir =~ s/\/*$//;
     $csyncdir =~ s/\/*$//;
-    my $qproddir     = shell_quote($proddir);
-    my $qcsyncdir    = shell_quote($csyncdir);
-    my $qproddir_tmp = shell_quote($proddir_tmp);
-    my $errstr       = "";
-    my $err          = 0;
+    my $errstr = "";
+    my $err    = 0;
 
     $self->log->debug("_commit_remote(): sub got called");
 
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
 
-        my $ok = $ssh->test( "rsync", "-caHAXq", "--delete", "$csyncdir/",
-            "$proddir_tmp" );
+        my $ok = $ssh->test("rsync -caHAXq --delete $csyncdir/ $proddir_tmp");
 
         if ($ok) {
-            $ok = $ssh->test( "diff", "-qrN", $csyncdir, $proddir_tmp );
+            $ok = $ssh->test("diff -qrN $csyncdir $proddir_tmp");
         }
 
         if ($ok) {
             $ok = $ssh->test( "
-                if [ -d $qproddir ]; then
-                    mv $qproddir $qproddir.bak;
+                if [ -d $proddir ]; then
+                    mv $proddir $proddir.bak;
                 fi;
-                mv $qproddir_tmp $qproddir;
-                if [ -d $qproddir.bak ]; then
-                    mv $qproddir.bak $qproddir_tmp;
+                mv $proddir_tmp $proddir;
+                if [ -d $proddir.bak ]; then
+                    mv $proddir.bak $proddir_tmp;
                 fi;"
             );
         }
@@ -203,8 +198,8 @@ sub _local_rsync {
     );
 
     my $err = !$rsync->exec(
-        {   "quote-src"  => $proddir . '/',
-            "quote-dest" => $csyncdir
+        {   src  => $proddir . '/',
+            dest => $csyncdir
         }
     );
 
@@ -251,16 +246,16 @@ sub _check_stamps {
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
 
-        my $fn = shell_quote(
-            "/var/lib/anysyncd/" . $self->config->{name} . "_success_stamp" );
+        my $fn =
+            "/var/lib/anysyncd/" . $self->config->{name} . "_success_stamp";
         my $succ = $ssh->capture("[ -f $fn ] && cat $fn; exit 0;");
         $succ =~ s/[^0-9]//g;
 
         unless ( $ssh->error ) {
             $fn =
-                shell_quote( "/var/lib/anysyncd/"
-                    . $self->config->{name}
-                    . "_lastchange_stamp" );
+                  "/var/lib/anysyncd/"
+                . $self->config->{name}
+                . "_lastchange_stamp";
             my $lastchange = $ssh->capture("[ -f $fn ] && cat $fn; exit 0");
             $lastchange =~ s/[^0-9]//g;
 
