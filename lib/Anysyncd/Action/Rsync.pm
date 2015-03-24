@@ -75,8 +75,8 @@ sub process_files {
             $self->files_clear;
 
             $rsync->exec(
-                {   "quote-src"  => $self->config->{'from'},
-                    "quote-dest" => $self->config->{'to'}
+                {   src  => $self->config->{'from'},
+                    dest => $self->config->{'to'}
                 }
             ) or $self->log->error("Failed");
             $self->log->debug( "Syncing from: "
