@@ -123,36 +123,24 @@ sub process_files {
 
 sub _commit_remote {
     my ($self) = @_;
-    my $proddir = $self->config->{'prod_dir'};
-    my ( $basedir, $name ) = ( dirname($proddir), basename($proddir) );
-    my $proddir_tmp = File::Spec->join( $basedir, ".$name.tmp" );
-    my $csyncdir = $self->config->{'csync_dir'};
-    $proddir =~ s/\/*$//;
-    $csyncdir =~ s/\/*$//;
-    my $errstr = "";
-    my $err    = 0;
+
+    my $syncer  = $self->config->{name};
+    my $errstr       = "";
+    my $err          = 0;
 
     $self->log->debug("_commit_remote(): sub got called");
 
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
 
-        my $ok = $ssh->test("rsync -caHAXq --delete $csyncdir/ $proddir_tmp");
+        my $ok = $ssh->test( "anysyncd-csync2-remote-helper", "rsync-tmp", $syncer);
 
         if ($ok) {
-            $ok = $ssh->test("diff -qrN $csyncdir $proddir_tmp");
+            $ok = $ssh->test( "anysyncd-csync2-remote-helper", "diff", $syncer );
         }
 
         if ($ok) {
-            $ok = $ssh->test( "
-                if [ -d $proddir ]; then
-                    mv $proddir $proddir.bak;
-                fi;
-                mv $proddir_tmp $proddir;
-                if [ -d $proddir.bak ]; then
-                    mv $proddir.bak $proddir_tmp;
-                fi;"
-            );
+            $ok = $ssh->test( "anysyncd-csync2-remote-helper", "commit", $syncer );
         }
 
         if ($ok) {
