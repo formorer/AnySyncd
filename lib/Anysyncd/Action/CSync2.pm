@@ -191,7 +191,8 @@ sub _csync2 {
 
     $self->log->debug("_csync2(): sub got called");
 
-    my $csync_out = `csync2 -x 2>&1`;
+    my $cmd = "csync2 -x -G " . $self->config->{name} . " 2>&1";
+    my $csync_out = `$cmd`;
     $err = $?;
     if ($err) {
         $errstr = "_csync2(): csync2 failed with $err: $csync_out";
