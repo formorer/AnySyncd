@@ -133,14 +133,14 @@ sub _commit_remote {
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
 
-        my $ok = $ssh->test( "anysyncd-csync2-remote-helper", "rsync-tmp", $syncer);
+        my $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper", "rsync-tmp", $syncer);
 
         if ($ok) {
-            $ok = $ssh->test( "anysyncd-csync2-remote-helper", "diff", $syncer );
+            $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper", "diff", $syncer );
         }
 
         if ($ok) {
-            $ok = $ssh->test( "anysyncd-csync2-remote-helper", "commit", $syncer );
+            $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper", "commit", $syncer );
         }
 
         if ($ok) {
@@ -152,6 +152,18 @@ sub _commit_remote {
         }
     }
     return ( $err, $errstr );
+}
+
+sub _remote_cmd {
+    my ($self, $ssh, @cmd) = @_;
+
+    my $remote_prefix_cmd = $self->config->{'remote_prefix_command'} || undef;
+
+    if ($remote_prefix_cmd) {
+	unshift @cmd, $remote_prefix_cmd;
+    }
+
+    $ssh->test(@cmd);
 }
 
 sub _csync2 {
