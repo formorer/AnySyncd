@@ -41,6 +41,9 @@ my $proddir = $handler_cfg->{prod_dir};
 my ($basedir, $name) = ( dirname($proddir), basename($proddir) );
 my $proddir_tmp = File::Spec->join( $basedir, ".$name.tmp" );
 my $csyncdir = $handler_cfg->{'csync_dir'};
+my $succ_stamp = "/var/lib/anysyncd/" . $name . "_success_stamp";
+my $lastchange_stamp = "/var/lib/anysyncd/" . $name . "_lastchange_stamp";
+
 $proddir =~ s/\/*$//;
 $csyncdir =~ s/\/*$//;
 
@@ -58,6 +61,10 @@ mv $proddir_tmp $proddir;
 if [ -d $proddir.bak ]; then
 	mv $proddir.bak $proddir_tmp;
 fi;";
+} elsif ($action eq 'success-stamp') {
+	$cmd = "[ -f $succ_stamp ] && cat $succ_stamp; exit 0;";
+} elsif ($action eq 'lastchange-stamp') {
+	$cmd = "[ -f $lastchange_stamp ] && cat $lastchange_stamp; exit 0;";
 } else {
 	die "unknown action '$action'";
 }
