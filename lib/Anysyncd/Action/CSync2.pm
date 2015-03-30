@@ -163,7 +163,23 @@ sub _remote_cmd {
 	unshift @cmd, $remote_prefix_cmd;
     }
 
+    $self->log->debug("Executing remote cmd: " . join(" ", @cmd));
+
     $ssh->test(@cmd);
+}
+
+sub _remote_capture {
+    my ($self, $ssh, @cmd) = @_;
+
+    my $remote_prefix_cmd = $self->config->{'remote_prefix_command'} || undef;
+
+    if ($remote_prefix_cmd) {
+	unshift @cmd, $remote_prefix_cmd;
+    }
+
+    $self->log->debug("Capturing remote cmd: " . join(" ", @cmd));
+
+    $ssh->capture(@cmd);
 }
 
 sub _csync2 {
@@ -240,23 +256,18 @@ sub _check_stamps {
     my ($self) = @_;
     my $errstr = "";
     my $err    = 0;
+    my $syncer = $self->config->{name};
 
     $self->log->debug("_check_stamps(): sub got called");
 
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
 
-        my $fn =
-            "/var/lib/anysyncd/" . $self->config->{name} . "_success_stamp";
-        my $succ = $ssh->capture("[ -f $fn ] && cat $fn; exit 0;");
+        my $succ = $self->_remote_capture($ssh, "anysyncd-csync2-remote-helper","success-stamp", $syncer);
         $succ =~ s/[^0-9]//g;
 
         unless ( $ssh->error ) {
-            $fn =
-                  "/var/lib/anysyncd/"
-                . $self->config->{name}
-                . "_lastchange_stamp";
-            my $lastchange = $ssh->capture("[ -f $fn ] && cat $fn; exit 0");
+            my $lastchange = $self->_remote_capture($ssh, "anysyncd-csync2-remote-helper", "lastchange-stamp", $syncer);
             $lastchange =~ s/[^0-9]//g;
 
             if (   !$ssh->error
