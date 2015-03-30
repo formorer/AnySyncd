@@ -10,64 +10,66 @@ use Getopt::Long;
 use Config::IniFiles;
 
 my $cfgfile = "/etc/anysyncd/anysyncd.ini";
-my $verbose	= 0;
+my $verbose = 0;
 
 GetOptions(
-	"cfg"	=> \$cfgfile,
-	"verbose" 	=> \$verbose,
+    "cfg"     => \$cfgfile,
+    "verbose" => \$verbose,
 );
 
 my $action = shift;
 my $syncer = shift;
 
-if (!$action) {
-	die "action argument is required";
+if ( !$action ) {
+    die "action argument is required";
 }
-if (!$syncer) {
-	die "syncer argument is required";
+if ( !$syncer ) {
+    die "syncer argument is required";
 }
 
 my $cfg = Config::IniFiles->new( -file => '/etc/anysyncd/anysyncd.ini' );
-if (!$cfg->SectionExists($syncer)) {
-	die "no sync cfg named '$syncer' defined in /etc/anysyncd/anysyncd.ini";
+if ( !$cfg->SectionExists($syncer) ) {
+    die "no sync cfg named '$syncer' defined in /etc/anysyncd/anysyncd.ini";
 }
 
 my $handler_cfg;
-foreach my $k ( $cfg->Parameters($syncer)) {
-	$handler_cfg->{$k} = $cfg->val($syncer, $k);
+foreach my $k ( $cfg->Parameters($syncer) ) {
+    $handler_cfg->{$k} = $cfg->val( $syncer, $k );
 }
 
 my $proddir = $handler_cfg->{prod_dir};
-my ($basedir, $name) = ( dirname($proddir), basename($proddir) );
-my $proddir_tmp = File::Spec->join( $basedir, ".$name.tmp" );
-my $csyncdir = $handler_cfg->{'csync_dir'};
-my $succ_stamp = "/var/lib/anysyncd/" . $name . "_success_stamp";
+my ( $basedir, $name ) = ( dirname($proddir), basename($proddir) );
+my $proddir_tmp      = File::Spec->join( $basedir, ".$name.tmp" );
+my $csyncdir         = $handler_cfg->{'csync_dir'};
+my $succ_stamp       = "/var/lib/anysyncd/" . $name . "_success_stamp";
 my $lastchange_stamp = "/var/lib/anysyncd/" . $name . "_lastchange_stamp";
 
 $proddir =~ s/\/*$//;
 $csyncdir =~ s/\/*$//;
 
 my $cmd;
-if ($action eq 'rsync-tmp') {
-	$cmd = "rsync -caHAXq --delete $csyncdir/ $proddir_tmp";
-} elsif ($action eq 'diff') {
-	$cmd = "diff -qrN $csyncdir $proddir_tmp";
-} elsif ($action eq 'commit') {
-	$cmd = "
-if [ -d $proddir ]; then
-	mv $proddir $proddir.bak;
-fi;
-mv $proddir_tmp $proddir;
-if [ -d $proddir.bak ]; then
-	mv $proddir.bak $proddir_tmp;
-fi;";
-} elsif ($action eq 'success-stamp') {
-	$cmd = "[ -f $succ_stamp ] && cat $succ_stamp; exit 0;";
-} elsif ($action eq 'lastchange-stamp') {
-	$cmd = "[ -f $lastchange_stamp ] && cat $lastchange_stamp; exit 0;";
+if ( $action eq 'rsync-tmp' ) {
+    $cmd = "rsync -caHAXq --delete $csyncdir/ $proddir_tmp";
+} elsif ( $action eq 'diff' ) {
+    $cmd = "diff -qrN $csyncdir $proddir_tmp";
+} elsif ( $action eq 'commit' ) {
+    $cmd = "
+        if [ -d $proddir ]; then
+            mv $proddir $proddir.bak;
+        fi;
+        mv $proddir_tmp $proddir;
+        if [ -d $proddir.bak ]; then
+            mv $proddir.bak $proddir_tmp;
+        fi;";
+} elsif ( $action eq 'success-stamp' ) {
+    $cmd = "[ -f $succ_stamp ] && cat $succ_stamp; exit 0;";
+} elsif ( $action eq 'lastchange-stamp' ) {
+    $cmd = "[ -f $lastchange_stamp ] && cat $lastchange_stamp; exit 0;";
 } else {
-	die "unknown action '$action'";
+    die "unknown action '$action'";
 }
 
 print "Command: $cmd\n" if $verbose;
 exec($cmd);
+
+# vim: syntax=perl sw=4 ts=4 et shiftround

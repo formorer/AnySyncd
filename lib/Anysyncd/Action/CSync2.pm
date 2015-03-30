@@ -124,23 +124,26 @@ sub process_files {
 sub _commit_remote {
     my ($self) = @_;
 
-    my $syncer  = $self->config->{name};
-    my $errstr       = "";
-    my $err          = 0;
+    my $syncer = $self->config->{name};
+    my $errstr = "";
+    my $err    = 0;
 
     $self->log->debug("_commit_remote(): sub got called");
 
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
 
-        my $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper", "rsync-tmp", $syncer);
+        my $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper",
+            "rsync-tmp", $syncer );
 
         if ($ok) {
-            $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper", "diff", $syncer );
+            $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper",
+                "diff", $syncer );
         }
 
         if ($ok) {
-            $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper", "commit", $syncer );
+            $ok = $self->_remote_cmd( $ssh, "anysyncd-csync2-remote-helper",
+                "commit", $syncer );
         }
 
         if ($ok) {
@@ -155,29 +158,29 @@ sub _commit_remote {
 }
 
 sub _remote_cmd {
-    my ($self, $ssh, @cmd) = @_;
+    my ( $self, $ssh, @cmd ) = @_;
 
     my $remote_prefix_cmd = $self->config->{'remote_prefix_command'} || undef;
 
     if ($remote_prefix_cmd) {
-	unshift @cmd, $remote_prefix_cmd;
+        unshift @cmd, $remote_prefix_cmd;
     }
 
-    $self->log->debug("Executing remote cmd: " . join(" ", @cmd));
+    $self->log->debug( "Executing remote cmd: " . join( " ", @cmd ) );
 
     $ssh->test(@cmd);
 }
 
 sub _remote_capture {
-    my ($self, $ssh, @cmd) = @_;
+    my ( $self, $ssh, @cmd ) = @_;
 
     my $remote_prefix_cmd = $self->config->{'remote_prefix_command'} || undef;
 
     if ($remote_prefix_cmd) {
-	unshift @cmd, $remote_prefix_cmd;
+        unshift @cmd, $remote_prefix_cmd;
     }
 
-    $self->log->debug("Capturing remote cmd: " . join(" ", @cmd));
+    $self->log->debug( "Capturing remote cmd: " . join( " ", @cmd ) );
 
     $ssh->capture(@cmd);
 }
@@ -263,11 +266,15 @@ sub _check_stamps {
     for my $host ( split( '\s+', $self->config->{'remote_hosts'} ) ) {
         my $ssh = Net::OpenSSH->new($host);
 
-        my $succ = $self->_remote_capture($ssh, "anysyncd-csync2-remote-helper","success-stamp", $syncer);
+        my $succ =
+            $self->_remote_capture( $ssh, "anysyncd-csync2-remote-helper",
+            "success-stamp", $syncer );
         $succ =~ s/[^0-9]//g;
 
         unless ( $ssh->error ) {
-            my $lastchange = $self->_remote_capture($ssh, "anysyncd-csync2-remote-helper", "lastchange-stamp", $syncer);
+            my $lastchange =
+                $self->_remote_capture( $ssh, "anysyncd-csync2-remote-helper",
+                "lastchange-stamp", $syncer );
             $lastchange =~ s/[^0-9]//g;
 
             if (   !$ssh->error
