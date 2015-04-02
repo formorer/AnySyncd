@@ -6,8 +6,11 @@ use strict;
 use warnings;
 
 use File::Basename qw(basename dirname);
+use File::Spec;
+use File::Copy;
 use Getopt::Long;
 use Config::IniFiles;
+use Anysyncd::Action::CSync2::Utils;
 
 my $cfgfile = "/etc/anysyncd/anysyncd.ini";
 my $verbose = 0;
@@ -37,39 +40,53 @@ foreach my $k ( $cfg->Parameters($syncer) ) {
     $handler_cfg->{$k} = $cfg->val( $syncer, $k );
 }
 
-my $proddir = $handler_cfg->{prod_dir};
-my ( $basedir, $name ) = ( dirname($proddir), basename($proddir) );
-my $proddir_tmp      = File::Spec->join( $basedir, ".$name.tmp" );
-my $csyncdir         = $handler_cfg->{'csync_dir'};
-my $succ_stamp       = "/var/lib/anysyncd/" . $name . "_success_stamp";
-my $lastchange_stamp = "/var/lib/anysyncd/" . $name . "_lastchange_stamp";
+my $utils = Anysyncd::Action::CSync2::Utils->new( { name => $syncer } );
 
+my $proddir = $handler_cfg->{prod_dir};
 $proddir =~ s/\/*$//;
+my ( $basedir, $name ) = ( dirname($proddir), basename($proddir) );
+my $proddir_tmp = File::Spec->join( $basedir, ".$name.tmp" );
+my $csyncdir = $handler_cfg->{'csync_dir'};
 $csyncdir =~ s/\/*$//;
 
-my $cmd;
-if ( $action eq 'rsync-tmp' ) {
-    $cmd = "rsync -caHAXq --delete $csyncdir/ $proddir_tmp";
-} elsif ( $action eq 'diff' ) {
-    $cmd = "diff -qrN $csyncdir $proddir_tmp";
-} elsif ( $action eq 'commit' ) {
-    $cmd = "
-        if [ -d $proddir ]; then
-            mv $proddir $proddir.bak;
-        fi;
-        mv $proddir_tmp $proddir;
-        if [ -d $proddir.bak ]; then
-            mv $proddir.bak $proddir_tmp;
-        fi;";
-} elsif ( $action eq 'success-stamp' ) {
-    $cmd = "[ -f $succ_stamp ] && cat $succ_stamp; exit 0;";
-} elsif ( $action eq 'lastchange-stamp' ) {
-    $cmd = "[ -f $lastchange_stamp ] && cat $lastchange_stamp; exit 0;";
+my $err    = 0;
+my $errstr = "";
+if ( $action eq 'commit' ) {
+    ( $err, $errstr ) = $utils->rsync( $csyncdir, $proddir_tmp );
+    if ( !$err and -d $proddir ) {
+        $err = !move( $proddir, "$proddir.bak" );
+        $errstr = $! if $err;
+    }
+    if ( !$err ) {
+        $err = !move( $proddir_tmp, $proddir );
+        $errstr = $! if $err;
+    }
+    if ( !$err and -d "$proddir.bak" ) {
+        $err = !move( "$proddir.bak", $proddir_tmp );
+        $errstr = $! if $err;
+    }
+} elsif ( $action eq 'stamps' ) {
+    my @stamps = ();
+    foreach my $type ( "success", "lastchange" ) {
+        my $stamp = "";
+        my $fn    = "/var/lib/anysyncd/" . $name . "_" . $type . "_stamp";
+        if ( -f $fn ) {
+            if ( open( my $fh, "<", $fn ) ) {
+                $stamp = do { local $/ = <$fh> };
+                close $fh;
+            } else {
+                $err++;
+                $errstr .= "Failed to open $fn: $!";
+            }
+        }
+        push( @stamps, $stamp );
+    }
+    print join( ":", @stamps );
 } else {
     die "unknown action '$action'";
 }
 
-print "Command: $cmd\n" if $verbose;
-exec($cmd);
+print STDERR $errstr if ( $err and $errstr );
+exit $err;
 
 # vim: syntax=perl sw=4 ts=4 et shiftround
