@@ -95,6 +95,7 @@ sub process_files {
     }
     sub {
         if ($@) {
+            $self->_unlock();
             croak("There was an error in the fork call: $@");
         }
         $self->log->info("rsync calls done");
