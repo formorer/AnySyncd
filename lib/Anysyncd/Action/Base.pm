@@ -1,5 +1,43 @@
 package Anysyncd::Action::Base;
 
+=head1 NAME
+
+Anysyncd::Action::Base - Common interface for all sync actions
+
+=head1 SYNOPSIS
+
+    use Anysyncd::Action::Base;
+    my $action = Anysyncd::Action::Base->new( config => $config );
+
+=head1 DESCRIPTION
+
+The base module for all syncer actions for anysyncd. It takes care of handling
+watcher events and defines the interface for all action implementations, which
+is very simple, all actions should look similar to this:
+
+    use Moose;
+    extends 'Anysyncd::Action::Base';
+
+    sub process_files {
+        $self->_lock();
+        fork_call {
+            for ( @{ $self->files() } ) {
+                ... do the actual sync
+            }
+            $self->files_clear;
+        }
+        sub {
+            $self->_stamp_file( "success", time() ) unless ($@);
+        };
+        $self->_unlock();
+    }
+
+=head2 Methods
+
+This class has no public methods.
+
+=cut
+
 use Moose;
 use MooseX::AttributeHelpers;
 
@@ -207,7 +245,8 @@ This is released under the MIT License. See the B<COPYRIGHT> file.
 
 =head1 AUTHOR
 
-Alexander Wirt <alexander.wirt@credativ.de>
+Alexander Wirt <alexander.wirt@credativ.de>,
+Carsten Wolff <carsten.wolff@credativ.de>
 
 =cut
 
