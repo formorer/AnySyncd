@@ -101,11 +101,6 @@ sub BUILD {
     }
 }
 
-sub files_clear {
-    my $self = shift;
-    $self->_files->store( freeze( [] ) );
-}
-
 sub _create_watcher {
     my $self = shift;
     if ( $self->_noop() ) {
@@ -139,6 +134,12 @@ sub _noop {
             and not -e $self->config->{'noop_file'} );
 }
 
+#
+# FIXME: The next 3 functions are not sufficient for syncer implementations
+# that want to synchronise only files gotten from events. For this to work,
+# there needs at least be a function to atomically "pop" files from the list
+# and the "files" method needs to be made atomic, too
+#
 sub files {
     my $self = shift;
     if (@_) {
@@ -179,6 +180,11 @@ sub add_files {
         $self->_timer($w);
         $self->_stamp_file( "lastchange", time() );
     }
+}
+
+sub files_clear {
+    my $self = shift;
+    $self->_files->store( freeze( [] ) );
 }
 
 sub _report_error {
