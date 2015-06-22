@@ -22,8 +22,8 @@ Anysyncd::Daemon - Daemonizing for anysyncd
 This module takes care of daemonizing the anysyncd daemon. It uses
 L<MooseX::Daemonize> for all the dirty work.
 
-The following functions provided by L<MooseX::Daemonize> are hidden
-to the Getopt Interface:
+The following functions provided by L<MooseX::Daemonize> are hidden to the
+Getopt Interface:
 
 =over 12
 
@@ -43,7 +43,7 @@ to the Getopt Interface:
 
 =head2 Configuration File
 
-None yet
+See the configfile and config methods below.
 
 =head2 Methods
 
@@ -60,12 +60,12 @@ with qw(MooseX::Daemonize);
 use MooseX::AttributeHelpers;
 
 use AnyEvent;
-use AnyEvent::Filesys::Notify;
 use Log::Log4perl;
 use Config::IniFiles;
 use Data::Dumper;
+use Carp qw(croak);
 
-my $VERSION = '0.1';
+my $VERSION = '1.9';
 
 =item C<log>
 
@@ -78,8 +78,7 @@ has log =>
 
 =item C<logfile>
 
-$self->logfile allows to set the logfile, this can't be changed after the
-object
+$self->logfile allows to set the logfile, this can't be changed after the object
 is fully initialized (in that case after C<$self->log> is used for the first
 time
 
@@ -95,9 +94,9 @@ has logfile => (
 
 =item C<loglevel>
 
-$self->loglevel allows to set the loglevel, this can't be changed after the object
-is fully initialized (in that case after C<$self->log> is used for the first
-time
+$self->loglevel allows to set the loglevel, this can't be changed after the
+object is fully initialized (in that case after C<$self->log> is used for the
+first time
 
 =cut
 
@@ -111,15 +110,17 @@ has loglevel => (
 
 =item C<configfile>
 
-$self->configfile represents the configurationfile, it defaults to /etc/anysyncd/anysyncd.ini
+$self->configfile represents the configurationfile, it defaults to
+/etc/anysyncd/anysyncd.ini
 
 =cut
 
 has configfile => (
-    is            => 'rw',
-    isa           => 'Str',
-    default       => '/etc/anysyncd/anysyncd.ini',
-    documentation => qq { configfile for anysyncd, defaults to '/etc/anysyncd/anysyncd.ini' }
+    is      => 'rw',
+    isa     => 'Str',
+    default => '/etc/anysyncd/anysyncd.ini',
+    documentation =>
+        qq { configfile for anysyncd, defaults to '/etc/anysyncd/anysyncd.ini' }
 );
 
 =item C<config>
@@ -134,25 +135,14 @@ has config => (
     documentation => qq { the 'Config::IniFiles' configobject }
 );
 
-#hide some stuff from the commandline
+# hide some stuff from the commandline
 has '+pidbase'        => ( traits => ['NoGetopt'] );
 has '+no_double_fork' => ( traits => ['NoGetopt'] );
 has '+ignore_zombies' => ( traits => ['NoGetopt'] );
 has '+progname'       => ( traits => ['NoGetopt'] );
 
-#has '+dont_close_all_files' => ( traits => ['NoGetopt'] );
+# has '+dont_close_all_files' => ( traits => ['NoGetopt'] );
 has '+basedir' => ( traits => ['NoGetopt'] );
-
-has 'files' => (
-    metaclass => 'Collection::Array',
-    is        => 'ro',
-    isa       => 'ArrayRef',
-    default   => sub { [] },
-    provides  => {
-        'push'   => 'add_files',
-        'delete' => 'delete_files',
-    }
-);
 
 sub _build_loglevel {
     my $self = shift;
@@ -198,7 +188,42 @@ sub BUILD {
         }
         $self->config($cfg);
     }
+
+    my $statedir = "/var/lib/anysyncd";
+    if ( !-d $statedir ) {
+        mkdir( $statedir, 0700 ) or croak("Failed to create $statedir: $!");
+    }
 }
+
+=item C<setup_signals>
+
+Complements the MooseX::Daemonize method by adding a handler for SIGHUP,
+because the MooseX::Daemonize manpage lies about having a handler
+"handle_sighup". It is commented in the code.
+
+Re-opens the logfile on SIGHUP in daemon mode. In foreground mode, shut down
+instead.
+
+=cut
+
+after setup_signals => sub {
+    my $self = shift;
+    $SIG{'HUP'} = sub {
+        if ( $self->foreground ) {
+            $self->shutdown();
+        } else {
+            Log::Log4perl->init( $self->_logging_configuration );
+            $self->log( Log::Log4perl->get_logger() );
+            $self->log->info('Re-opened Logfiles');
+        }
+    };
+};
+
+=item C<shutdown>
+
+Log shoutdown.
+
+=cut
 
 before shutdown => sub {
     my $self = shift;
@@ -207,6 +232,12 @@ before shutdown => sub {
     $self->log->info('Daemon shutting down');
 };
 
+=item C<stop>
+
+Log stop.
+
+=cut
+
 before stop => sub {
     my $self = shift;
     Log::Log4perl->init( $self->_logging_configuration );
@@ -214,12 +245,25 @@ before stop => sub {
     $self->log->info('Daemon shutting down');
 };
 
+=item C<restart>
+
+Log restart.
+
+=cut
+
 after restart => sub {
     my $self = shift;
     Log::Log4perl->init( $self->_logging_configuration );
     $self->log( Log::Log4perl->get_logger() );
     $self->log->info('Daemon restarted');
 };
+
+=item C<start>
+
+Starts the daemon functionality. Init Logging, read config, instantiate handler
+objects, start AnyEvent Loop.
+
+=cut
 
 after start => sub {
     my $self = shift;
@@ -233,86 +277,62 @@ after start => sub {
 
     foreach my $section ( $self->config->Sections() ) {
         next if $section eq 'global';
-        my $handler = $self->config->val( $section, 'handler' );
-        if ( !$handler ) {
-            $self->log->error(
-                "Section \"$section\" has no configured handler");
-            next;
-        }
 
-        #build configuration for the handler
-
-        my $config_for_handler;
+        # build configuration for the handler
+        my $config_for_handler = { name => $section };
         foreach my $sect_t ( 'global', $section ) {
             foreach my $key ( $self->config->Parameters($sect_t) ) {
                 $config_for_handler->{$key} =
                     $self->config->val( $sect_t, $key );
             }
-            $config_for_handler->{name} = $sect_t;
         }
-
+        $config_for_handler->{filter} ||= '\.(swp|tmp)$';
         $self->log->debug(
             sprintf( 'Configuration for section "$section": %s',
                 Dumper($config_for_handler) )
         );
-
-        my $obj =
-            $self->_load( $section, $handler, "new",
-            config => $config_for_handler )
-            || next;
-        $self->{'handlers'}->{$section}->{'obj'} = $obj;
-
-        $self->log->info("Added $handler as handler for $section");
-
-        my $watcher = $self->config->val( $section, 'watcher' );
-        if ( !$watcher ) {
-            $self->error("No watcher found for $section");
+        unless ($config_for_handler->{handler}
+            and $config_for_handler->{watcher} )
+        {
+            $self->log->error( 'Configuration error: "'
+                    . $section
+                    . '" needs a "handler" and a "watcher"' );
             next;
         }
-        my $filter = $self->config->val( $section, 'filter' )
-            || '\.(swp|tmp)$';
 
-        my $notifier = AnyEvent::Filesys::Notify->new(
-            dirs         => [$watcher],
-            filter       => sub { shift !~ /$filter/ },
-            parse_events => 1,
-            cb           => sub {
-                $self->process( $section, @_ );
-            }
-        );
-        if ($notifier) {
-            $self->log->info("Watcher added for $section");
-        }
+        # instantiate handler
+        $self->{'handlers'}->{$section}->{'obj'} =
+            $self->_load($config_for_handler) || next;
+
+        $self->log->info( "Added "
+                . $config_for_handler->{handler}
+                . " as handler for $section" );
     }
 
     my $w = AnyEvent->condvar;  # stores whether a condition was flagged
     $w->recv;                   # enters "main loop" till $condvar gets ->send
 };
 
-sub process {
-    my $self    = shift;
-    my $section = shift;
-    foreach my $event (@_) {
-        $self->{'handlers'}->{$section}->{'obj'}->add_files( $event->path );
-    }
-}
-
+# Loads handler packages
 sub _load {
+    my ( $self, $config ) = @_;
 
-    my ( $self, $section, $module, $constructor, @args ) = @_;
-
-    eval "require $module";
+    eval "require $config->{handler}";
 
     if ($@) {
         $self->log->error(
-            "Could not load module $module for section $section: $@");
+                  "Could not load module $config->{handler} for section "
+                . $config->{name}
+                . ": $@" );
         return undef;
     }
     my $obj;
-    eval { $obj = $module->$constructor(@args); };
+    eval { $obj = $config->{handler}->new( config => $config ); };
     if ($@) {
         $self->log->error(
-            "Could not instantiate module $module for section $section: $@");
+            "Could not instantiate module $config->{handler} for section "
+                . $config->{name}
+                . ": $@" );
         return undef;
     }
     return $obj;
@@ -326,7 +346,8 @@ This is released under the MIT License. See the B<COPYRIGHT> file.
 
 =head1 AUTHOR
 
-Alexander Wirt <alexander.wirt@credativ.de>
+Alexander Wirt <alexander.wirt@credativ.de>,
+Carsten Wolff <carsten.wolff@credativ.de>
 
 =cut
 

@@ -1,26 +1,43 @@
 package Anysyncd::Action::Rsync;
 
-=pod
 =head1 NAME
 
 Anysyncd::Action::Rsync - Rsync based syncer for AnySyncd
 
 =head1 SYNOPSIS
 
-[syncpair]
+    [syncpair]
 
-handler = Anysyncd::Action::Rsync
-from = /tmp/testdir
-to = /tmp/testdir2
-watcher = /tmp/testdir
+    handler = Anysyncd::Action::Rsync
+    from = /tmp/testdir
+    to = /tmp/testdir2
+    watcher = /tmp/testdir
 
 =head1 DESCRIPTION
 
-Anysyncd::Action::Rsync is an rsync based syncer for AnySyncd, it calls rsync
-for every change event. If there are any later events after the first sync, it tries
-up to three time to sync the whole tree, until there are any new events.
+Anysyncd::Action::Rsync is an rsync based syncer for anysyncd. It calls rsync
+for every change event. If new events arrive before rsync has finished, it
+tries up to three times to fully sync the whole tree without intermittent
+events.
 
-It doesn't accept any Syncer specific options.
+=head2 Configuration File
+
+For a general description of the configuration file, look at the anysynd
+documentation.
+
+=head3 Rsync syncer options
+
+=over
+
+=item C<from> I<path>
+
+This is the source path used in the rsync call.
+
+=item C<to> I<path>
+
+This is the destination path used in the rsync call.
+
+=back
 
 =cut
 
@@ -45,15 +62,14 @@ sub BUILD {
 
 sub process_files {
     my $self = shift;
-    $self->_timer(undef);
+    $self->_lock();
     $self->log->debug("Processing files");
 
     if ( !scalar @{ $self->files() } ) {
         $self->log->debug("No files to sync");
+        $self->_unlock();
         return;
     }
-
-    $self->_lock();
 
     my $rsync = File::Rsync->new(
         archive      => 1,
@@ -96,9 +112,11 @@ sub process_files {
     }
     sub {
         if ($@) {
+            $self->_unlock();
             croak("There was an error in the fork call: $@");
         }
         $self->log->info("rsync calls done");
+        $self->_stamp_file( "success", time() );
         $self->_unlock();
     };
 }
