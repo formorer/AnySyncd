@@ -221,7 +221,7 @@ after setup_signals => sub {
 
 =item C<shutdown>
 
-Log shoutdown.
+Log shutdown.
 
 =cut
 
