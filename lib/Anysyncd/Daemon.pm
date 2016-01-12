@@ -65,7 +65,7 @@ use Config::IniFiles;
 use Data::Dumper;
 use Carp qw(croak);
 
-my $VERSION = '1.11';
+my $VERSION = '1.12';
 
 =item C<log>
 
